@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <style>
+        :root {
+
+            --bottom-height: 75px;
+
+        }
+
+        #game {
+            position: relative;
+            width: 800px;
+            height: 450px;
+            overflow: hidden;
+            margin: auto;
+            margin-top: 10%;
+			white-space: nowrap;
+			font-size: 0;
+        }
+        #game-chunk {
+			display: inline-block;
+            position: relative;
+            background-image: url("./game-background.jpg");
+            background-attachment: inherit;
+            background-size: 800px 450px;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+        }
+		
+		#game-block {
+			position: absolute;
+			
+		}
+        
+        #game-player {
+            position: absolute;
+            z-index: 1;
+            bottom: var(--bottom-height);
+            width: 40px; 
+            height: 60px;
+        }
+
+    </style>
+</head>
+<body>
+    
+    <section id="game">
+        <div id="game-player" width="40" height="60">
+            <div style="position: relative; width: 100%; height: 100%;"><img src="./player.gif" style="width:100%; height: 100%; object-fit: cover;"></div>
+        </div>
+        <div id="game-chunk"> <!-- Game chunk -->
+            <div id="game-block" width="40" height="80" x="200" y="0" style="background-image: url('./block.jpg'); background-size: cover;"></div>
+            <div id="game-block" width="40" height="40" x="140" y="0" style="background-color: black;"></div>
+            <div id="game-block" width="40" height="20" x="700" y="0" style="background-color: black;"></div>
+
+
+            <div id="game-block" width="20" height="10" x="100" y="0" style="background-color: black;"></div>
+			<div id="game-block" width="20" height="100" x="100" y="120" style="background-color: black;"></div>
+
+        </div>
+        <div id="game-chunk">
+			<div id="game-block" width="40" height="80" x="200" y="0" style="background-image: url('./block.jpg'); background-size: cover;"></div>
+            <div id="game-block" width="40" height="40" x="140" y="0" style="background-color: black;"></div>
+            <div id="game-block" width="40" height="40" x="260" y="0" style="background-color: black;"></div>
+
+
+            <div id="game-block" width="20" height="20" x="10" y="0" style="background-color: black;"></div>
+			<div id="game-block" width="20" height="100" x="10" y="120" style="background-color: black;"></div>
+
+			<div id="game-block" width="20" height="20" x="770" y="0" style="background-color: black;"></div>
+			<div id="game-block" width="20" height="100" x="770" y="120" style="background-color: black;"></div>
+
+        </div>
+		<div id="game-chunk">
+			<div id="game-block" width="40" height="80" x="200" y="0" style="background-image: url('./block.jpg'); background-size: cover;"></div>
+            <div id="game-block" width="40" height="40" x="140" y="0" style="background-color: black;"></div>
+            <div id="game-block" width="40" height="40" x="260" y="0" style="background-color: black;"></div>
+
+        </div>
+    </section>
+
+
+
+    <script>
+
+        // constants / variables
+
+		const game = document.querySelector("#game");
+		const chunks = game.querySelectorAll("#game-chunk");
+        const player = game.querySelector("#game-player");
+		
+		const gameOptions = {
+			
+			game : {
+				width : 800,
+				height : 450,
+				loadChunks : 3,
+				minY : 75,
+				minX : 0
+			},
+			
+			chunk : {
+				width : this.game.width,
+				height : this.game.height
+			},
+			
+			player : {
+				width : 0,
+				height : 0
+			}
+			
+		};
+
+		let loadedChunksObjectsCoords = [];
+		
+		/* TEMPLATE: 
+			
+			loadedChunksObjectsCoords =  [ // loaded chunks
+				{ // loaded chunk coords
+								
+					global : { 	// ??¿¿
+						x : [],
+						y : []
+					},			// ¿¿??
+						
+					goFrowoard : {
+						x : [],
+						y : []
+					},
+					
+					goBack : {
+						x : [],
+						y : []
+					},
+					
+					goUp : {
+						x : [],
+						y : []
+					},
+					
+					goDown : {
+						x : [],
+						y : []
+					}
+						
+					
+				}, ... // more loaded chunks coords
+			];
+		
+		*/
+		
+		let loadedChunksObjectsInfo = [];
+		
+		/* TEMPLATE:
+		
+			loadedChunksObjectsInfo = [	// list of loaded chunks
+				[ // loaded chunk info
+					{ // object info by index
+						type : 'block',
+						height : num,
+						width : num
+					}
+				], ... // more loaded chunks info
+			]
+		
+		*/
+		
+		let loadedChunks = 0; // used to load chunks
+		let currentChunk = 0; // used to check frames
+	
+		const playerLoader = () => {
+			
+			let player = document.querySelector("#game-player");
+			
+			let width = Number(player.getAttribute("width"));
+			let height = Number(player.getAttribute("height"));
+			
+			gameOptions.player.width = width;
+			gameOptions.player.height = height;
+			
+			let style = "";
+			
+			if(!player.getAttribute("style")) style = "width: " + width + "px; height: " + height + "px;";
+			else style = player.getAttribute("style") + ";width: " + width + "px; height: " + height + "px;";;
+			
+			player.setAttribute("style", "style");
+			
+			return;
+			
+		};
+
+		const chunkLoader = () => { // 0 if we want to load the chunk 0 and 1 then when the player is in chunk 1 load 2 more chunks 2 and 3
+			
+			// will load 2 more chunks by the defualt game options
+			
+			function loadBlock(chunk, chunkNumber){
+				
+				let blocks = chunk.querySelectorAll("#game-block");
+				
+				if(!blocks) return;
+				
+				let index = 0;
+				
+				blocks.forEach((block) => {
+				
+					let style = "";
+				
+					let width = Number(block.getAttribute("width")); // NaN ??
+					let height = Number(block.getAttribute("height")); // NaN ??
+				
+					loadedChunksObjectsInfo[chunkNumber].push({
+						type : 'block',
+						width : width,
+						height : height
+					});
+				
+					style += "width: " + width + "px; height: " + height + "px;";
+				
+					let x = Number(block.getAttribute("x")); // NaN ??
+					let y = Number(block.getAttribute("y")); // NaN ??
+					
+					//console.log(loadedChunksObjectsCoords[chunkNumber]["goForward"]["x"]);
+					loadedChunksObjectsCoords[chunkNumber]["goForward"]["x"].push(x);
+					loadedChunksObjectsCoords[chunkNumber]["goForward"]["y"].push(y);	
+					loadedChunksObjectsCoords[chunkNumber]["goForward"]["indexInfo"].push(index);	
+					
+					loadedChunksObjectsCoords[chunkNumber]["goBack"]["x"].push(x + width);
+					loadedChunksObjectsCoords[chunkNumber]["goBack"]["y"].push(y);	
+					loadedChunksObjectsCoords[chunkNumber]["goBack"]["indexInfo"].push(index);	
+
+					
+					loadedChunksObjectsCoords[chunkNumber]["goUp"]["x"].push({ x0 : x, x1 : x + width });
+					loadedChunksObjectsCoords[chunkNumber]["goUp"]["y"].push(y);	
+					
+					loadedChunksObjectsCoords[chunkNumber]["goDown"]["x"].push({ x0 : x, x1 : x + width});
+					loadedChunksObjectsCoords[chunkNumber]["goDown"]["y"].push(y + height);
+					
+					index++;
+					
+					let minX = gameOptions.game.minX;
+					let minY = gameOptions.game.minY;
+							
+					y += minY;
+					x += minX;
+					
+					style += "left: " + x + "px; bottom: " + y + "px;";
+							
+					if(block.getAttribute("style") !== undefined) style = block.getAttribute("style") + ";" + style;
+					
+
+					//console.log(style);
+
+					block.setAttribute("style", style);
+					
+					return;
+				
+				});
+				
+			};
+			
+			let i = 0;
+			
+			for(; i < gameOptions.game.loadChunks; i++){
+			
+				let currentLoadChunk = loadedChunks + i;
+			
+				if(currentLoadChunk > chunks.length - 1){	// check if can load another chunk by checking if we arribed to the max chunk
+				
+					break;
+				
+				};
+				
+				let chunk = chunks[loadedChunks + i];
+
+				let chunkWidth = Number(chunk.getAttribute("width"));
+				let chunkHeight = Number(chunk.getAttribute("height"));
+				
+				if(!chunkWidth){
+					chunkWidth = gameOptions.game.width;
+					chunk.setAttribute("width", chunkWidth);
+				};
+				if(!chunkHeight){
+					chunkHeight = gameOptions.game.height;			
+					chunk.setAttribute("height", "height");
+				};
+				
+				let x = Number(chunk.getAttribute("x")); // relative to the game container
+				let y = Number(chunk.getAttribute("y")); // relative to the game container
+				
+				if(!x){
+					//if(i === 0) x = 0;
+					//else x = Number(chunks[i - 1].getAttribute("width")) + Number(chunks[i - 1].getAttribute("x")) ;
+					x = 0;
+					
+					chunk.setAttribute("x", x);
+				};
+				if(!y){
+					y = 0;
+					chunk.setAttribute("y", y);
+				}
+								
+				let style = "width: " + chunkWidth + "px; height: " + chunkHeight + "px; left: " + x + "px; bottom: " + y + "px;"
+				
+				chunk.setAttribute("style", style);
+				
+				let template = {
+				
+					/*global : {
+						x : [],
+						y : []
+					},*/
+						
+					goForward : {
+						x : [],
+						y : [],
+						indexInfo : []
+					},
+						
+					goBack : {
+						x : [],
+						y : [],
+						indexInfo : []
+					},
+						
+					goUp : {
+						x : [],
+						y : [],
+                        indexInfo : []
+					},
+					
+					goDown : {
+						x: [],
+						y: [],
+                        indexInfo : []
+					}
+					
+				};
+
+				loadedChunksObjectsCoords.push(template);
+					
+				loadedChunksObjectsInfo.push([]);
+				
+				loadBlock(chunk, currentLoadChunk);
+			
+			};
+			
+			loadedChunks += i;
+		
+		};
+
+        const frameHandler = () => {
+
+            let currentPositionAbsolute = { // relative to the container (div id="game")
+                x : gameOptions.game.minX,  // left
+                y : gameOptions.game.minY  // bottom
+            };
+			
+			let currentPositionRelative = { // relative to the game sttings (minX - minY)
+				x : 0,
+				y : 0 
+			}
+
+            let isJumping = false;
+            let isGoingForward = false;
+			let isGoingBack = false;
+			let isGoingDown = false;
+			
+
+            function jump(){
+        
+                isJumping = true;
+
+                let jumped = 0;
+                let descending = false;
+                let velocity = 1;
+                let maxJump = 49; // like jump 50 - 0 -> 49 = 50
+                let goDownPlus = 0;
+
+                let jumpAnimation = setInterval(() => {
+
+                    let canPass = true;
+                    
+					let playerOptions = gameOptions.player;
+					let playerHeight = gameOptions.player.height;
+
+                    if(descending === true){
+
+                        /*let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goDown"];
+
+                        canPass = true; // reset canPass for the descending action
+
+                        for(let i = 0; i <= velocity; i++){
+
+                            let checkPosition = currentPositionRelative.y - i;
+                            let indexPositions = [];
+
+                            let index = 0;
+
+                            chunkObjectsCoords.y.forEach((coord) => {
+                            
+                                if(coord === checkPosition) indexPositions.push(index);
+                                index++;
+                                //console.log(coord);
+                        
+                            });
+
+                            //console.log(indexPositions, currentPositionRelative.y);
+
+                            if(indexPositions.length !== 0){
+
+                                for(let x = 0; x < indexPositions.length; x++){
+
+                                    let indexPosition = indexPositions[x];
+                                  
+                                    let startX = chunkObjectsCoords.x[indexPosition].x0;
+                                    let endX = chunkObjectsCoords.x[indexPosition].x1;
+                                
+                                    if(startX >= currentPositionRelative.x + playerOptions.width || endX <= currentPositionRelative.x){
+                                        
+                                        continue;
+                                    
+                                    };
+
+                                    canPass = false;
+
+                                    break;
+                                
+                                };
+
+                                if(canPass === false){ // here because we have the i local variable then break it
+
+                                    currentPositionRelative.y -= i;
+                                    currentPositionAbsolute.y -= i;
+                                    player.style.bottom = currentPositionAbsolute.y + "px";
+
+                                    clearInterval(jumpAnimation);
+                                    isJumping = false;
+                                    return;
+
+                                };
+                            };
+
+                        };
+
+                        if(canPass === true && jumped === 0){
+
+                            if(goDownPlus !== 0){
+
+                                currentPositionAbsolute.y -= goDownPlus;
+						        currentPositionRelative.y -= goDownPlus;
+                                player.style.bottom = currentPositionAbsolute.y + "px";
+								
+                            }
+		
+							console.log("stop jumping going down on " + currentPositionRelative.y, currentPositionAbsolute.y);
+                            clearInterval(jumpAnimation);
+                            isJumping = false;
+                            
+							let checkGoDownResult = checkGoDown(); // set in the final because they will check if needs to go down on the current
+                                                                      // position and then will forward two, first needs to forwards and then chceck
+							if(checkGoDownResult) goDown();
+							
+							return;
+
+                        };
+
+                        jumped--;
+                        currentPositionAbsolute.y -= velocity;
+						currentPositionRelative.y -= velocity;
+                        player.style.bottom = currentPositionAbsolute.y + "px";
+
+						*/
+					
+						let checkGoDownResult = checkGoDown(); // set in the final because they will check if needs to go down on the current
+                        //console.log("suuuuuuuuuuu", checkGoDownResult, isGoingDown);                                       // position and then will forward two, first needs to forwards and then chceck
+						if(checkGoDownResult) goDown();
+						clearInterval(jumpAnimation);
+						return;
+						
+						
+                    }else {
+                        
+                        let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goUp"];
+
+                        for(let i = 0; i <= velocity; i++){
+
+                            let checkPosition = currentPositionRelative.y + playerHeight + i;
+                            let indexPositions = [];
+
+                            let index = 0;
+							
+                            chunkObjectsCoords.y.forEach((coord) => {
+                            
+                                if(coord === checkPosition) indexPositions.push(index);
+                                index++;
+                            
+                            });
+
+                            //console.log(indexPositions);
+
+                            if(indexPositions.length !== 0){
+
+                                for(let x = 0; x < indexPositions.length; x++){ 
+                                    
+                                    let indexPosition = indexPositions[x];
+
+                                    let startX = chunkObjectsCoords.x[indexPosition].x0;
+                                    let endX = chunkObjectsCoords.x[indexPosition].x1;
+
+                                    //console.log(startX, endX, currentPositionRelative.x + playerOptions.width);
+
+                                    if(startX >= currentPositionRelative.x + playerOptions.width || endX <= currentPositionRelative.x){
+                                        
+                                        continue;
+                                    
+                                    };
+
+                                    canPass = false;
+
+                                    break;
+                                };
+                            };
+
+                            if(canPass === false){ // here because we have the i local variable then break it
+                            
+                                currentPositionRelative.y += i;
+                                currentPositionAbsolute.y += i;
+                                player.style.bottom = currentPositionAbsolute.y + "px";
+
+                                goDownPlus = i; // to stay down width the same position when start jumping
+                                                // because we sum i to the current position, becuase we found a object and
+                                                // we can't pass, we sum the i that is the max we can go up, becuase there
+                                                // is the object. Then we store that value in the goDownPlus variable, then
+                                                // when is decending will substract the value of i to stay on the same position
+                                                // when we start jumping
+                              	isJumping = false;
+								descending = true;
+                                break;
+
+                            }
+                        };
+
+                        if(canPass === true) {
+
+                            jumped++;
+                            currentPositionRelative.y += velocity;
+                            currentPositionAbsolute.y += velocity;
+                            player.style.bottom = currentPositionAbsolute.y + "px";
+
+                            if(jumped === maxJump){
+								isJumping = false;
+								descending = true;
+							};
+                        };
+                        
+                    };
+
+                }, 5);
+
+            };
+
+            function goDown(){
+
+                let velocity = 1;
+
+                let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goDown"];
+                let playerOptions = gameOptions.player;
+
+				if(isGoingDown === false){
+
+					isGoingDown = true;
+
+					let goDownInterval = setInterval(() => {
+
+						let canPass = true; 
+					
+						for(let i = 0; i <= velocity; i++){
+
+							let checkPosition = currentPositionRelative.y - i;
+							let indexPositions = [];
+
+							let index = 0;
+
+							chunkObjectsCoords.y.forEach((coord) => {
+							
+								if(coord === checkPosition) indexPositions.push(index);
+								index++;
+								//console.log(coord);
+
+							});
+
+							//console.log(indexPositions, currentPositionRelative.y);
+
+							if(indexPositions.length !== 0){
+
+								for(let x = 0; x < indexPositions.length; x++){
+
+									let indexPosition = indexPositions[x];
+								
+									let startX = chunkObjectsCoords.x[indexPosition].x0;
+									let endX = chunkObjectsCoords.x[indexPosition].x1;
+								
+									if(startX >= currentPositionRelative.x + playerOptions.width || endX <= currentPositionRelative.x){
+										
+										continue;                            
+									};
+
+									canPass = false;
+
+									break;
+								
+								};
+
+								if(canPass === false){ // here because we have the i local variable then break it
+
+									currentPositionRelative.y -= i;
+									currentPositionAbsolute.y -= i;
+									player.style.bottom = currentPositionAbsolute.y + "px";
+
+									isGoingDown = false;
+									clearInterval(goDownInterval);
+									return;
+
+								};
+							};
+
+						};
+
+						if(currentPositionRelative.y === 0){
+
+							console.log("stop going down on " + currentPositionRelative.y, currentPositionAbsolute.y);
+							isGoingDown = false;
+							clearInterval(goDownInterval);
+							return;
+
+						};
+						//console.log("a_", currentPositionRelative.y)
+
+						currentPositionAbsolute.y -= (currentPositionRelative.y < velocity) ? currentPositionRelative.y : velocity;
+						currentPositionRelative.y -= (currentPositionRelative.y < velocity) ? currentPositionRelative.y : velocity;
+						player.style.bottom = currentPositionAbsolute.y + "px";
+
+					}, 5);
+				
+				} else return;
+				
+            };  
+
+            function checkGoDown() {
+
+                let canGoDown = false;
+
+                let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goDown"];
+
+                if(currentPositionRelative.y !== 0 && isJumping === false){
+                
+                    let playerOptions = gameOptions.player;
+
+                    let checkPosition = currentPositionRelative.y;
+                    let indexPositions = [];
+
+                    let index = 0;
+
+                    chunkObjectsCoords.y.forEach((coord) => {
+                            
+                            if(coord === checkPosition) indexPositions.push(index);
+                            index++;
+
+                    });  
+
+					if(indexPositions.length === 0){
+						
+						canGoDown = true;
+						
+					};
+
+                    for(let i = 0; i < indexPositions.length; i++){
+                        
+						let indexPosition = indexPositions[i];
+
+                        let startX = chunkObjectsCoords.x[indexPosition].x0;
+                        let endX = chunkObjectsCoords.x[indexPosition].x1;
+						
+						if((startX >= currentPositionRelative.x + playerOptions.width && startX >= currentPositionRelative.x) || (endX <= currentPositionRelative.x && endX <= currentPositionRelative.x + playerOptions.width)){
+							
+							canGoDown = true;							
+							continue;
+							
+						}else{
+							
+							console.log("Don't go down, berak");
+							canGoDown = false;
+							break;
+							
+						}
+						
+                        //if((startX < currentPositionRelative.x && endX > currentPositionRelative.x) || ( startX < currentPositionRelative.x + playerOptions.width && endX > currentPositionRelative.y + playerOptions.width)){ console.log(true) };
+
+                    };
+
+                }else return canGoDown; // false
+				
+				return canGoDown; // false or true
+
+            }
+
+            /*function checkGoDownWhenForward(){
+
+                let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goDown"];
+
+                let goDown = false;
+
+                if(currentPositionRelative.y !== 0 && isJumping === false){
+                            
+                    let playerOptions = gameOptions.player;
+
+                    let checkPosition = currentPositionRelative.y;
+                    let indexPositions = [];
+
+                    let index = 0;
+
+                    chunkObjectsCoords.y.forEach((coord) => {
+                            
+                            if(coord === checkPosition) indexPositions.push(index);
+                            index++;
+
+                    });
+
+                    for(let i = 0; i < indexPositions.length; i++){
+
+                        let indexPosition = indexPositions[i];
+
+                        let startX = chunkObjectsCoords.x[indexPosition].x0;
+                        let endX = chunkObjectsCoords.x[indexPosition].x1;
+
+                        if(startX <= currentPositionRelative.x + playerOptions.width && endX <= currentPositionRelative.x){
+
+                            for(let x = 0; x < indexPositions.length; x++){
+
+                                if(chunkObjectsCoords.x[x].x1 > endX){
+
+                                    if(endX + playerOptions.width <= chunkObjectsCoords.x[x].x1){
+
+                                        goDown = true;
+                                        break;
+                                    }else;
+
+                                }else if(x === indexPositions.length - 1){
+
+                                    if(endX + playerOptions.width <= gameOptions.game.width){    // change it to chunk with no game width, first we need to aply chunk width
+
+                                        goDown = true;
+                                        break;
+
+                                    }
+
+                                }else continue;
+
+                            };
+
+
+                        }else if(goDown === true) break;
+                        else continue;
+
+
+                    };
+
+
+                    if(goDown === true){
+
+                        return true;
+
+                    }else return false;
+                    
+
+
+                            
+                }else return false;
+
+            }*/
+
+            let goForwardInterval = undefined;
+
+            function goForward(){
+
+				let velocity = 1; // 1px per second
+
+                goForwardInterval = setInterval(() => {
+
+					let canPass = true;
+				
+                    let goDownCoords = loadedChunksObjectsCoords["goDown"];
+					let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goForward"];
+					let playerOptions = gameOptions.player;
+					let playerHeight = gameOptions.player.height;
+		
+					let currentChunkWidth = Number(chunks[currentChunk].getAttribute("width"));
+										
+					if(currentPositionRelative.x + playerOptions.width >= currentChunkWidth && currentPositionRelative.x <= currentChunkWidth){
+						
+						let arr = loadedChunksObjectsCoords[currentChunk + 1]["goForward"].x;
+						arr = arr.map((coord) => coord + currentChunkWidth);
+						//console.log(arr);
+
+						chunkObjectsCoords.x = chunkObjectsCoords.x.concat(arr);
+						chunkObjectsCoords.y = chunkObjectsCoords.y.concat(loadedChunksObjectsCoords[currentChunk + 1]["goForward"].y);
+						chunkObjectsCoords.indexInfo = chunkObjectsCoords.indexInfo.concat(loadedChunksObjectsCoords[currentChunk + 1]["goForward"].indexInfo);
+					
+					};
+		
+					for(let i = 0; i <= velocity; i++){
+					
+                
+						let checkPosition = currentPositionRelative.x + i + playerOptions.width;
+						let indexPositions = [];//chunkObjectsCoords.x.indexOf(checkPosition) + lastIndex;
+							
+						let index = 0;
+							
+						chunkObjectsCoords.x.forEach((coord) => {
+						
+							if(coord === checkPosition) indexPositions.push(index);
+							index++;
+						
+						});
+						
+						if(indexPositions.length !== 0){
+							
+							//console.log(indexPositions);
+							
+							for(let x = 0; x < indexPositions.length; x++){ 
+								
+								let indexPosition = indexPositions[x];
+								
+								let coordsY = chunkObjectsCoords.y[indexPosition];
+
+								let indexInfo = chunkObjectsCoords.indexInfo[indexPosition];
+								
+								let objInfo;
+								//console.log("xx", chunkObjectsCoords.x[indexPosition], currentChunkWidth)
+								if(chunkObjectsCoords.x[indexPosition] >= currentChunkWidth ) { objInfo = loadedChunksObjectsInfo[currentChunk + 1][indexInfo]; }//alert(coordsY + " . " + currentPositionRelative.y)}
+								else objInfo = loadedChunksObjectsInfo[currentChunk][indexInfo];
+								
+								//console.log(indexInfo, objInfo);
+															
+								if(coordsY >= playerHeight + currentPositionRelative.y || coordsY + objInfo.height <= currentPositionRelative.y){
+									
+									continue;
+									
+								}
+								
+								canPass = false;
+								
+								break;
+							};
+							
+							if(canPass === false){
+							
+								currentPositionRelative.x += i;
+								currentPositionAbsolute.x += i;
+								//player.style.left =  currentPositionAbsolute.x + "px";
+						
+								if(currentPositionAbsolute.x > gameOptions.game.width / 2) chunks.forEach((chunk) => chunk.style.left = ((0 - currentPositionAbsolute.x) + (gameOptions.game.width / 2)) + "px");						
+								else player.style.left =  currentPositionAbsolute.x + "px";
+								
+								break;
+							
+							}else continue;
+							
+						}else continue;
+					
+					};
+				
+					if(canPass === false){
+					
+						// do nothing, just player will stop
+					
+					}else {
+									
+						currentPositionRelative.x += velocity;
+						currentPositionAbsolute.x += velocity;
+						//console.log((0 - currentPositionAbsolute.x) + gameOptions.game.width)
+						if(currentPositionAbsolute.x > gameOptions.game.width / 2) chunks.forEach((chunk) => chunk.style.left = ((0 - currentPositionAbsolute.x) + (gameOptions.game.width / 2)) + "px");						
+						else player.style.left =  currentPositionAbsolute.x + "px";
+				
+						let currentChunkWidth = Number(chunks[currentChunk].getAttribute("width"));
+						let currentChunkPosition = 0;
+						
+						for(let z = 0; z < currentChunk; z++) currentChunkPosition += Number(chunks[z].getAttribute("width"));
+						
+						if(currentPositionAbsolute.x >= currentChunkWidth + currentChunkPosition){
+							currentChunk++;
+							currentPositionRelative.x = 0;
+						};
+					};
+					
+					let checkGoDownResult = checkGoDown(); // set in the final because they will check if needs to go down on the current
+                                                           // position and then will forward two, first needs to forwards and then chceck
+                    if(checkGoDownResult) goDown();
+					
+                }, 5);
+
+                isGoingForward = true;
+
+                return;
+
+            };
+
+            function stopGoForward(){
+
+                clearInterval(goForwardInterval);
+
+                isGoingForward = false;
+
+                return;
+
+            }
+
+            let goBackInterval = undefined;
+
+            function goBack(){
+
+				let velocity = 1;
+
+                goBackInterval = setInterval(() => {
+					
+					let canPass = true;
+
+					let chunkObjectsCoords = loadedChunksObjectsCoords[currentChunk]["goBack"];
+					let playerOptions = gameOptions.player;
+					let playerHeight = gameOptions.player.height;
+		
+					let currentChunkWidth = Number(chunks[currentChunk].getAttribute("width"));
+		
+					console.log("aaaaaaa", currentPositionRelative);
+		
+					if(currentPositionRelative.x + playerOptions.width >= 0 && currentPositionRelative.x <= 0){
+						
+						let arr = loadedChunksObjectsCoords[currentChunk - 1]["goBack"].x;
+						arr = arr.map((coord) => coord - currentChunkWidth);
+						console.log(arr);
+
+						chunkObjectsCoords.x = chunkObjectsCoords.x.concat(arr);
+						chunkObjectsCoords.y = chunkObjectsCoords.y.concat(loadedChunksObjectsCoords[currentChunk - 1]["goBack"].y);
+						chunkObjectsCoords.indexInfo = chunkObjectsCoords.indexInfo.concat(loadedChunksObjectsCoords[currentChunk - 1]["goBack"].indexInfo);
+					
+					};
+					
+					for(let i = 0; i <= velocity; i++){
+					
+						let checkPosition = currentPositionRelative.x - i;
+						let indexPositions = [];
+					
+						let index = 0;
+						
+						chunkObjectsCoords.x.forEach((coord) => {
+						
+							if(coord === checkPosition) indexPositions.push(index);
+							index++;
+						
+						});
+					
+						if(indexPositions.length !== 0){
+								
+							for(let x = 0; x < indexPositions.length; x++){
+							
+								let indexPosition = indexPositions[x];
+								
+								let coordsY = chunkObjectsCoords.y[indexPosition];
+
+								let indexInfo = chunkObjectsCoords["indexInfo"][indexPosition];
+								
+								if(chunkObjectsCoords.x[indexPosition] <= 0) { objInfo = loadedChunksObjectsInfo[currentChunk - 1][indexInfo]; }//alert(coordsY + " . " + currentPositionRelative.y)}
+								else objInfo = loadedChunksObjectsInfo[currentChunk][indexInfo];
+								
+								//let objInfo = loadedChunksObjectsInfo[currentChunk][indexInfo];
+								
+								//console.log(coordsY, objInfo.height, playerHeight, coordsY + objInfo.height >= playerHeight || coordsY + objInfo.height <= objInfo.height);
+								//console.log(coordsY + objInfo.height, currentPositionRelative.y, objInfo, coordsY);
+								
+								if(coordsY >= playerHeight + currentPositionRelative.y || coordsY + objInfo.height <= currentPositionRelative.y){   // the "=" I put it because without it don't let me advance when the player
+                                                                                                                                                    // is up, because they see 10 < 10 false then don't pass, and is logic because
+                                                                                                                                                    // they are on the same position and they can pass then put the ">=" "<="
+									
+									continue;
+									
+								}
+								
+								canPass = false;
+								
+								break;
+								
+							};
+							
+							if(canPass === false){
+							
+								currentPositionRelative.x -= i;
+								currentPositionAbsolute.x -= i;
+								//player.style.left =  currentPositionAbsolute.x + "px";
+					
+								if(currentPositionAbsolute.x > gameOptions.game.width / 2) chunks.forEach((chunk) => chunk.style.left = ((0 - currentPositionAbsolute.x) + (gameOptions.game.width / 2)) + "px");						
+								else player.style.left =  currentPositionAbsolute.x + "px";
+								
+								break;
+							
+							}else continue;
+							
+						}else continue;
+						
+					};
+					
+					if(canPass === false){
+					
+						// do nothing, just player will stop
+					
+					}else {
+					
+						currentPositionRelative.x -= velocity;
+						currentPositionAbsolute.x -= velocity;
+						//player.style.left =  currentPositionAbsolute.x + "px";
+
+						if(currentPositionAbsolute.x > gameOptions.game.width / 2) chunks.forEach((chunk) => chunk.style.left = ((0 - currentPositionAbsolute.x) + (gameOptions.game.width / 2)) + "px");						
+						else player.style.left =  currentPositionAbsolute.x + "px";
+												
+					};
+					
+					let checkGoDownResult = checkGoDown(); // set in the final because they will check if needs to go down on the current
+                                                                      // position and then will forward two, first needs to forwards and then chceck
+                    if(checkGoDownResult) goDown();
+
+                }, 5);
+
+                isGoingBack = true;
+
+                return;
+
+            }
+
+            function stopGoBack(){
+
+                clearInterval(goBackInterval);
+
+                isGoingBack = false;
+
+                return;
+
+            }
+
+            const keyDownEvent = document.addEventListener("keydown", (e) => {
+                e.preventDefault();
+                const key  = e.key;
+
+                if(key === "d" && isGoingForward === false && isGoingBack === false){ // move right and check if is not moving forward or back
+
+                    goForward();
+
+                }else if(key === "w" && isJumping === false && isGoingDown === false){  // jump and check if not jumping
+
+                    jump();
+
+                }else if(key === "a" && isGoingBack === false && isGoingForward === false){ // move left and check if is not moving forward or back
+
+                    goBack();
+
+                };
+
+            });
+
+            
+            const keyUpEvent = document.addEventListener("keyup", (e) => {
+                e.preventDefault();
+                const key  = e.key;
+
+                if(key === "d" && isGoingForward === true && isGoingBack === false){ // stop move right and check if is moving forward or back
+
+                    stopGoForward();
+
+                }else if(key === "a" && isGoingBack === true && isGoingForward === false){
+
+                    stopGoBack();                    
+
+                }
+
+            });
+
+        };
+		
+		playerLoader();
+		chunkLoader();
+		frameHandler();
+
+        // frameHandler();
+
+        // running animation
+        /*
+        let running_count = 0;
+        let running_interval = setInterval(() => {
+          
+            let img = player.querySelector("img"); 
+
+            if((running_count % 2) !== 0) img.setAttribute("src", "./mario-running-second.png");
+            else img.setAttribute("src", "./mario-running-first.png");
+
+            running_count++;
+
+        }, 500);*/
+
+    </script>
+</body>
+</html>

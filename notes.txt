@@ -1,0 +1,17 @@
+Cal fer que quan tiri a devant detecti unes posicions de X i quan tiri en rere unes altres
+	
+	|_-____-___-_|
+
+
+
+	isdown () {
+
+		allObjectsPositions : { start : x0, end : x1 };
+
+		loop(i){
+			
+			if((allObjectsPositions.start[i] >= currentPosition.x + player.width || allObjectsPositions.start[i] <= currentPosition.x) && (allObjectsPositions.end[i] >= currentPosition.x + player.width || allObjectsPositions.end[i] <= currentPosition.x))
+
+		}		
+
+	}
